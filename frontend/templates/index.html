@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini SQL Compiler | Compiler Design Group Project</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="dark-theme">
+  <!-- Top Application Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-badge">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+          <line x1="12" y1="2" x2="12" y2="22"></line>
+        </svg>
+      </div>
+      <div>
+        <h1 class="app-title">Mini SQL Compiler <span class="version-tag">v1.0</span></h1>
+        <p class="app-subtitle">Compiler Front-End for SQL Query Analysis &bull; Lexer &bull; Recursive Descent Parser &bull; Parse Tree &bull; Semantic Analyzer</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div id="compilerStatusPill" class="status-pill status-ready">
+        <span class="status-dot"></span>
+        <span id="compilerStatusText">Engine Ready</span>
+      </div>
+      <button id="schemaModalBtn" class="btn btn-secondary btn-sm" title="View Mock Database Schema">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        Schema
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+    <!-- Left Workspace: Editor & Query Controls -->
+    <section class="editor-section">
+      <div class="card editor-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            <span class="card-title">SQL Query Input</span>
+          </div>
+          <div class="editor-quick-examples">
+            <label for="exampleQuerySelect" class="quick-label">Presets:</label>
+            <select id="exampleQuerySelect" class="select-dropdown">
+              <option value="" disabled selected>Select an example query...</option>
+              <optgroup label="✅ Valid SQL Queries">
+                <option value="val_1">1. SELECT * Wildcard</option>
+                <option value="val_2">2. WHERE Filter (Math comparison)</option>
+                <option value="val_3">3. Compound Condition & ORDER BY</option>
+                <option value="val_4">4. DISTINCT & Employees Table</option>
+              </optgroup>
+              <optgroup label="❌ Error Test Cases">
+                <option value="inv_1">5. Syntax Error (Missing Columns)</option>
+                <option value="inv_2">6. Syntax Error (Missing FROM)</option>
+                <option value="inv_3">7. Semantic Error (Unknown Column)</option>
+                <option value="inv_4">8. Semantic Error (Type Mismatch)</option>
+                <option value="inv_5">9. Lexical Error (Invalid Symbol)</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        <div class="editor-wrapper">
+          <div class="line-numbers" id="lineNumbers">1</div>
+          <textarea id="sqlInput" class="code-editor" placeholder="Type your SQL query here... e.g.&#10;SELECT name, age FROM students WHERE age > 18 ORDER BY age DESC;" spellcheck="false">SELECT name, age FROM students WHERE age > 18 ORDER BY age DESC;</textarea>
+        </div>
+
+        <div class="editor-footer">
+          <div class="footer-shortcuts">
+            <span class="shortcut-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to compile</span>
+          </div>
+          <div class="footer-actions">
+            <button id="clearBtn" class="btn btn-secondary">Clear</button>
+            <button id="resetBtn" class="btn btn-secondary">Reset Sample</button>
+            <button id="compileBtn" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Compile Query</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Schema Reference Card -->
+      <div class="card schema-quick-card">
+        <div class="card-header">
+          <span class="card-title">Configured Mock Database Schema</span>
+          <span class="badge badge-neutral">In-Memory Catalog</span>
+        </div>
+        <div class="schema-tables-grid">
+          <div class="schema-table-box">
+            <div class="table-name-badge">students</div>
+            <div class="table-columns-chips">
+              <span class="chip chip-pk">id: INT</span>
+              <span class="chip">name: VARCHAR</span>
+              <span class="chip">age: INT</span>
+              <span class="chip">department: VARCHAR</span>
+              <span class="chip">marks: FLOAT</span>
+            </div>
+          </div>
+          <div class="schema-table-box">
+            <div class="table-name-badge">employees</div>
+            <div class="table-columns-chips">
+              <span class="chip chip-pk">id: INT</span>
+              <span class="chip">name: VARCHAR</span>
+              <span class="chip">salary: FLOAT</span>
+              <span class="chip">department: VARCHAR</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Workspace: Compilation Pipeline & Results Section -->
+    <section class="results-section">
+      <!-- Pipeline Status Ribbon -->
+      <div class="pipeline-ribbon">
+        <div class="pipeline-stages">
+          <div class="stage-item" id="stageLexical">
+            <span class="stage-icon">1</span>
+            <div class="stage-info">
+              <span class="stage-name">Lexical Analysis</span>
+              <span class="stage-status" id="statusLexical">IDLE</span>
+            </div>
+          </div>
+          <div class="stage-connector"></div>
+          <div class="stage-item" id="stageSyntax">
+            <span class="stage-icon">2</span>
+            <div class="stage-info">
+              <span class="stage-name">Syntax Analysis</span>
+              <span class="stage-status" id="statusSyntax">IDLE</span>
+            </div>
+          </div>
+          <div class="stage-connector"></div>
+          <div class="stage-item" id="stageSemantic">
+            <span class="stage-icon">3</span>
+            <div class="stage-info">
+              <span class="stage-name">Semantic Analysis</span>
+              <span class="stage-status" id="statusSemantic">IDLE</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pipeline-metrics">
+          <div class="metric-item">
+            <span class="metric-label">Tokens:</span>
+            <span class="metric-val" id="metricTokens">0</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Time:</span>
+            <span class="metric-val" id="metricDuration">0.0 ms</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Navigation Container -->
+      <div class="card results-card">
+        <div class="tabs-header">
+          <button class="tab-btn active" data-tab="tabTree">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            Parse Tree (CST)
+          </button>
+          <button class="tab-btn" data-tab="tabTokens">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            Tokens
+          </button>
+          <button class="tab-btn" data-tab="tabAST">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            AST & JSON
+          </button>
+          <button class="tab-btn" data-tab="tabSemantic">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            Semantic Checks
+          </button>
+          <button class="tab-btn" data-tab="tabSymbol">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            Symbol Table
+          </button>
+          <button class="tab-btn" data-tab="tabErrors">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            Diagnostics <span id="errorBadge" class="badge badge-error hidden">0</span>
+          </button>
+        </div>
+
+        <div class="tabs-content">
+          <!-- Tab 1: Parse Tree (CST) -->
+          <div class="tab-pane active" id="tabTree">
+            <div class="pane-toolbar">
+              <span class="pane-title">Concrete Syntax Tree (CST)</span>
+              <div class="toolbar-actions">
+                <button id="copyTreeBtn" class="btn btn-xs btn-secondary">Copy Tree</button>
+              </div>
+            </div>
+            <div id="treeContainer" class="tree-display">
+              <pre id="treeOutput" class="tree-code">Execute a query to construct the parse tree.</pre>
+            </div>
+          </div>
+
+          <!-- Tab 2: Tokens Stream Table -->
+          <div class="tab-pane" id="tabTokens">
+            <div class="pane-toolbar">
+              <span class="pane-title">Lexical Token Stream</span>
+              <span class="pane-count" id="tokenStreamCount">0 tokens generated</span>
+            </div>
+            <div class="table-scroll-wrapper">
+              <table class="data-table" id="tokensTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Token Type</th>
+                    <th>Lexeme</th>
+                    <th>Literal Value</th>
+                    <th>Line</th>
+                    <th>Col</th>
+                  </tr>
+                </thead>
+                <tbody id="tokensTableBody">
+                  <tr><td colspan="6" class="empty-state">No tokens generated yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 3: AST & JSON -->
+          <div class="tab-pane" id="tabAST">
+            <div class="pane-toolbar">
+              <span class="pane-title">Abstract Syntax Tree (AST JSON)</span>
+              <button id="copyJsonBtn" class="btn btn-xs btn-secondary">Copy JSON</button>
+            </div>
+            <div class="tree-display">
+              <pre id="astOutput" class="tree-code json-code">No AST generated yet.</pre>
+            </div>
+          </div>
+
+          <!-- Tab 4: Semantic Analysis -->
+          <div class="tab-pane" id="tabSemantic">
+            <div class="pane-toolbar">
+              <span class="pane-title">Semantic Validation Report</span>
+              <span class="badge badge-success" id="semanticBadge">Pending</span>
+            </div>
+            <div id="semanticContainer" class="semantic-list">
+              <div class="empty-state">Run compilation to inspect semantic validation.</div>
+            </div>
+          </div>
+
+          <!-- Tab 5: Symbol Table -->
+          <div class="tab-pane" id="tabSymbol">
+            <div class="pane-toolbar">
+              <span class="pane-title">Database Schema Symbol Table</span>
+            </div>
+            <div class="table-scroll-wrapper">
+              <table class="data-table" id="symbolTable">
+                <thead>
+                  <tr>
+                    <th>Table Name</th>
+                    <th>Column Name</th>
+                    <th>Data Type</th>
+                    <th>Nullable</th>
+                    <th>Key Type</th>
+                  </tr>
+                </thead>
+                <tbody id="symbolTableBody">
+                  <!-- Populated dynamically via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 6: Errors & Diagnostics -->
+          <div class="tab-pane" id="tabErrors">
+            <div class="pane-toolbar">
+              <span class="pane-title">Compiler Diagnostics & Error Log</span>
+            </div>
+            <div id="errorsContainer" class="errors-list">
+              <div class="success-callout" id="noErrorsNotice">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                <span>No compiler errors detected. All phases passed successfully.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Schema Modal Dialog -->
+  <div id="schemaModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Database Schema Details</h3>
+        <button id="closeModalBtn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body" id="modalSchemaContent">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

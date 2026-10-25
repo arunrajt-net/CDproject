@@ -1,0 +1,21 @@
+{
+  "students": {
+    "columns": {
+      "id": { "type": "INT", "nullable": false, "primary_key": true },
+      "name": { "type": "VARCHAR", "nullable": false },
+      "age": { "type": "INT", "nullable": true },
+      "department": { "type": "VARCHAR", "nullable": true },
+      "marks": { "type": "FLOAT", "nullable": true }
+    },
+    "description": "Student academic and personal records"
+  },
+  "employees": {
+    "columns": {
+      "id": { "type": "INT", "nullable": false, "primary_key": true },
+      "name": { "type": "VARCHAR", "nullable": false },
+      "salary": { "type": "FLOAT", "nullable": true },
+      "department": { "type": "VARCHAR", "nullable": true }
+    },
+    "description": "Company employee payroll and department records"
+  }
+}
